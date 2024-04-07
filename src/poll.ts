@@ -1,7 +1,7 @@
 import {GitHub} from '@actions/github/lib/utils'
+import {Run} from './types'
 import * as core from '@actions/core'
 import {wait} from './wait'
-import type {RestEndpointMethodTypes} from '@octokit/plugin-rest-endpoint-methods'
 
 export interface Config {
   client: InstanceType<typeof GitHub>
@@ -41,8 +41,7 @@ export async function poll(config: Config): Promise<void> {
       core.info(`Fetching check runs for ${owner}/${repo}@${ref}`)
       let pageNumber = 0
       let totalChecks = 0
-      let all_check_runs: RestEndpointMethodTypes['checks']['listForRef']['response']['data']['check_runs'] =
-        []
+      let all_check_runs: Run[] = []
       do {
         pageNumber++
         const response = await client.rest.checks.listForRef({
