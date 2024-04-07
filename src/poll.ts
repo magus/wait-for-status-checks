@@ -2,7 +2,7 @@ import {GitHub} from '@actions/github/lib/utils'
 import {Run} from './types'
 import * as core from '@actions/core'
 import {wait} from './wait'
-
+import {latest_run_list} from './latest_run_list'
 export interface Config {
   client: InstanceType<typeof GitHub>
   owner: string
@@ -67,30 +67,35 @@ export async function poll(config: Config): Promise<void> {
       core.debug(`Received ${totalChecks} total check runs`)
 
       // ignore the current job's check run
-      const check_runs = all_check_runs.filter(
+      const filteredRuns = all_check_runs.filter(
         run => !ignoreChecks.includes(run.name)
       )
-      core.info(`Parse ${check_runs.length} check runs`)
-      for (const run of check_runs) {
+      core.info(`Parse ${filteredRuns.length} filtered runs`)
+      for (const run of filteredRuns) {
         core.debug(
-          `> check run "${run.name}" is "${run.status}" with conclusion "${run.conclusion}"`
+          `> filtered run "${run.name}" is "${run.status}" with conclusion "${run.conclusion}"`
         )
       }
 
+      core.info('DEBUG RUN LIST')
+      core.info('------------------------START------------------------')
+      core.info(JSON.stringify(filteredRuns))
+      core.info('-------------------------END-------------------------')
+
+      // latestRunByName now contains the latest run grouped by run.name
+      // we convert them back into a list for subsequent checks
+      const check_runs = Object.values(latest_run_list(filteredRuns))
+
       // exit immediately if any runs completed without success (skipped counts as success)
-      const failed = check_runs.filter(run =>
-        isFailure({
-          name: run.name,
-          status: run.status,
-          conclusion: run.conclusion
-        })
-      )
+      const failed = check_runs.filter(isFailure)
+
       if (failed.length > 0) {
         core.info('One or more watched check runs were not successful')
         for (const run of failed) {
           core.info(
             `> check run "${run.name}" is completed with conclusion "${run.conclusion}" (unsuccessful)`
           )
+          core.info(`    ${run.url}`)
         }
         core.setFailed('One or more check runs were not successful')
         return
